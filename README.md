@@ -1,2 +1,2 @@
 # ych
-for graph classification test
+EXAMPLE1 : GCN, UNET, MGCN MODEL WITH COLLAB DATASET
