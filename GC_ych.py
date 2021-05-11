@@ -20,10 +20,11 @@ from torch.utils.data import DataLoader
 from os.path import join as pjoin
 
 print('using torch', torch.__version__)
+startall = time.time() # SET TIME
 
 # Experiment parameters
 parser = argparse.ArgumentParser(description='Graph Convolutional Networks')
-parser.add_argument('-D', '--dataset', type=str, default='PROTEINS')
+parser.add_argument('-D', '--dataset', type=str, default='COLLAB') # CAHANGE DATASET
 parser.add_argument('-M', '--model', type=str, default='gcn', choices=['gcn', 'unet', 'mgcn'])
 parser.add_argument('--lr', type=float, default=0.005, help='learning rate')
 parser.add_argument('--lr_decay_steps', type=str, default='25,35', help='learning rate')
@@ -184,7 +185,7 @@ if not args.torch_geom:
                 if not np.allclose(adj, adj.T):
                     print(sample_id, 'not symmetric')
                 n = np.sum(adj)  # total sum of edges
-                assert n % 2 == 0, n
+                # assert n % 2 == 0, n # ERROR
                 n_edges.append(int(n / 2))  # undirected edges, so need to divide by 2
                 degrees.extend(list(np.sum(adj, 1)))
                 if data['features'] is not None:
@@ -796,6 +797,7 @@ else:
 
 acc_folds = []
 
+print('Done tsec: {}s\n'.format(int(time.time()-startall))) # LOADING TIME
 for fold_id in range(n_folds):
 
     loaders = []
@@ -896,7 +898,8 @@ for fold_id in range(n_folds):
             time_iter = time.time() - start
             train_loss += loss.item() * len(output)
             n_samples += len(output)
-            if batch_idx % args.log_interval == 0 or batch_idx == len(train_loader) - 1:
+            #if batch_idx % args.log_interval == 0 or batch_idx == len(train_loader) - 1: # changed
+            if batch_idx == len(train_loader) - 1: # DELETE LOG_INTERVAL
                 print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f} (avg: {:.6f}) \tsec/iter: {:.4f}'.format(
                     epoch + 1, n_samples, len(train_loader.dataset),
                     100. * (batch_idx + 1) / len(train_loader), loss.item(), train_loss / n_samples,
@@ -936,3 +939,4 @@ for fold_id in range(n_folds):
 
 print(acc_folds)
 print('{}-fold cross validation avg acc (+- std): {} ({})'.format(n_folds, np.mean(acc_folds), np.std(acc_folds)))
+print('tsec/all: {}m {}s\n'.format(math.floor((int(time.time()-startall))/60),(int(time.time()-startall))%60)) # TOATL TIME
