@@ -3,6 +3,7 @@
 
 - Models GCN, Graph U-Net and MGCN are all proven available
 - Default Setting : MGCN with COLLAB datset
+- Segmentation Error : Wait and Try Again
 '''
 
 import matplotlib
