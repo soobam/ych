@@ -1,12 +1,9 @@
 ''' 
-210513 VERSION
+210513_2 VERSION
 
-- Delete Unnecessary code
-- Download Dataset From TUDataset
-- Default Setting : GCN with COLLAB datset
+- Models GCN, Graph U-Net and MGCN are all proven available
+- Default Setting : MGCN with COLLAB datset
 '''
-
-
 
 import matplotlib
 matplotlib.use('agg')
@@ -38,7 +35,7 @@ parser.add_argument('-D', '--dataset', type=str, default='COLLAB', help='Dataset
 parser.add_argument('-g', '--torch_geom_dataset', action='store_true', default=True, help='use PyTorch Geometric Dataset')
 '''  FALSE => User Dataset dir : "/data/COLLAB/"
      TURE => Geometric Dataset dir : "/data/COLLAB/raw/"'''
-parser.add_argument('-M', '--model', type=str, default='gcn', choices=['gcn', 'unet', 'mgcn'])
+parser.add_argument('-M', '--model', type=str, default='unet', choices=['gcn', 'unet', 'mgcn'])
 parser.add_argument('--lr', type=float, default=0.005, help='learning rate')
 parser.add_argument('--lr_decay_steps', type=str, default='25,35', help='learning rate')
 parser.add_argument('--wd', type=float, default=1e-4, help='weight decay')
