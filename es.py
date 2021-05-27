@@ -32,12 +32,12 @@ lr = 0.005
 epochs = 100
 log_interval = 10
 wdecay = 1e-4
-dataset = 'collab' # 'proteins' 'collab'
+dataset = 'PROTEINS' # 'proteins' 'collab'
 model_name = 'gcn'  # 'gcn', 'unet'
-device = 'cpu'  # 'cuda', 'cpu'
+device = 'cuda'  # 'cuda', 'cpu'
 visualize = True
 shuffle_nodes = False
-n_folds = 10  # 10-fold cross validation
+n_folds = 1  # 10-fold cross validation
 seed = 111
 print('torch', torch.__version__)
 
@@ -130,6 +130,9 @@ class DataReader():
         data['targets'] = np.array(self.parse_txt_file(list(filter(lambda f: f.find('graph_labels') >= 0, files))[0],
                                                        line_parse_fn=lambda s: int(float(s.strip()))))
         
+        data['test'] = np.array(
+            self.parse_txt_file(list(filter(lambda f: f.find('test') >= 0 , files))[0],
+                                line_parse_fn=lambda s: int(float(s.strip()))))
         #if self.use_cont_node_labels:
         #    data['features'] = self.read_node_features(list(filter(lambda f: f.find('node_labels') >= 0, files))[0], 
         #                                         nodes, graphs, fn=lambda s: int(s.strip()))  
@@ -185,6 +188,11 @@ class DataReader():
         shapes = [len(adj) for adj in data['adj_list']]
         labels = data['targets']        # graph class labels
         labels -= np.min(labels)        # to start from 0
+        
+        
+        test_idx = data['test']
+        test_idx -= np.min(test_idx)  # from 0 ~
+        
         N_nodes_max = np.max(shapes)    
 
         classes = np.unique(labels)
@@ -215,7 +223,7 @@ class DataReader():
         assert N_graphs == len(data['adj_list']) == len(features_onehot), 'invalid data'
 
         # Create test sets first
-        train_ids, test_ids = self.split_ids(np.arange(N_graphs), rnd_state=self.rnd_state, folds=folds)
+        train_ids, test_ids = self.split_ids(np.arange(N_graphs), test_idx , rnd_state=self.rnd_state, folds=folds)
 
         # Create train sets
         splits = []
@@ -232,19 +240,14 @@ class DataReader():
         
         self.data = data
 
-    def split_ids(self, ids_all, rnd_state=None, folds=10):
+    def split_ids(self, ids_all, te_idx, rnd_state=None, folds=10):
         n = len(ids_all)
-        ids = ids_all[rnd_state.permutation(n)]
         stride = int(np.ceil(n / float(folds)))
-        test_ids = [ids[i: i + stride] for i in range(0, n, stride)]
-        assert np.all(np.unique(np.concatenate(test_ids)) == sorted(ids_all)), 'some graphs are missing in the test sets'
-        assert len(test_ids) == folds, 'invalid test sets'
         train_ids = []
-        for fold in range(folds):
-            train_ids.append(np.array([e for e in ids if e not in test_ids[fold]]))
-            assert len(train_ids[fold]) + len(test_ids[fold]) == len(np.unique(list(train_ids[fold]) + list(test_ids[fold]))) == n, 'invalid splits'
-
-        return train_ids, test_ids
+        test_ids = []
+        test_ids.append(te_idx)
+        train_ids.append([e for e in ids_all if e not in te_idx])
+        return train_ids, test_ids 
 
     def parse_txt_file(self, fpath, line_parse_fn=None):
         with open(pjoin(self.data_dir, fpath), 'r') as f:
@@ -768,7 +771,7 @@ for _ in range(1):
         print(f"epochs:{epochs}")
         for epoch in range(epochs):
             train(loaders[0])
-            acc = test(loaders[0])
+            acc = test(loaders[1])
             acc_folds.append(acc)
     end_train = time.time()
 
