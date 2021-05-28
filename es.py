@@ -26,17 +26,19 @@ from torch.autograd import Variable
 
 
 # Experiment parameters
-batch_size = 32
+batch_size = 64
 threads = 0
 lr = 0.005
-epochs = 100
+epochs = 2000
 log_interval = 10
 wdecay = 1e-4
-dataset = 'PROTEINS' # 'proteins' 'collab'
+dataset = 'COLLAB' # 'proteins' 'collab'
 model_name = 'gcn'  # 'gcn', 'unet'
 device = 'cuda'  # 'cuda', 'cpu'
 visualize = True
 shuffle_nodes = False
+op_filters = [128,128,128]
+op_adj_sq = False
 n_folds = 1  # 10-fold cross validation
 seed = 111
 print('torch', torch.__version__)
@@ -224,7 +226,7 @@ class DataReader():
 
         # Create test sets first
         train_ids, test_ids = self.split_ids(np.arange(N_graphs), test_idx , rnd_state=self.rnd_state, folds=folds)
-
+        
         # Create train sets
         splits = []
         for fold in range(folds):
@@ -361,7 +363,7 @@ class GCN(nn.Module):
     def __init__(self,
                  in_features,
                  out_features,
-                 filters=[64,64,64],
+                 filters,#changed
                  n_hidden=0,
                  dropout=0.2,
                  adj_sq=False,
@@ -391,9 +393,9 @@ class GCN(nn.Module):
                                                 activation=nn.ReLU(inplace=True),
                                                 adj_sq=adj_sq,
                                                 scale_identity=scale_identity)]))
-        k1 = 30
+        k1 = 100#30
         self.k1 = k1
-        k2 = 10
+        k2 = 50#10
         conv2d = nn.Conv2d(k1,k2,(3, 3), stride=(1, 1), padding=(1, 1))
         self.conv2d = conv2d
 
@@ -593,9 +595,9 @@ if model_name == 'gcn':
     model = GCN(in_features=loaders[0].dataset.features_dim,
                 out_features=loaders[0].dataset.n_classes,
                 n_hidden=0,
-                filters=[64,64,64],
+                filters=op_filters,#changed
                 dropout=0.2,
-                adj_sq=False,#False
+                adj_sq=op_adj_sq,#changed
                 scale_identity=False).to(device)
 
 else:
@@ -736,11 +738,13 @@ for _ in range(1):
                 time_iter = time.time() - start
                 train_loss += loss.item() * len(output)
                 n_samples += len(output)
-                if batch_idx % log_interval == 0 or batch_idx == len(train_loader) - 1:
+#                if batch_idx % log_interval == 0 or batch_idx == len(train_loader) - 1:
+                if batch_idx == len(train_loader) - 1: # DELETE LOG_INTERVAL
                     print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f} (avg: {:.6f}) \tsec/iter: {:.4f}'.format(
                         epoch, n_samples, len(train_loader.dataset),
                         100. * (batch_idx + 1) / len(train_loader), loss.item(), train_loss / n_samples, time_iter / (batch_idx + 1) ))
         #             break 
+            return train_loss / n_samples
         def test(test_loader):
             model.eval()
             start = time.time()
@@ -766,18 +770,37 @@ for _ in range(1):
                                                                                                   correct, 
                                                                                                   n_samples, acc))
             return acc
-
+                
+        test_history = []
+        train_history = []
+        sum = 0.
+        t_sum = 0.
         loss_fn = F.cross_entropy
         print(f"epochs:{epochs}")
         for epoch in range(epochs):
-            train(loaders[0])
+            t_loss=train(loaders[0])
             acc = test(loaders[1])
-            acc_folds.append(acc)
+            sum += acc
+            t_sum += t_loss
+            # update graph per epochs
+            
+            # update graph per epochs
+            if epoch % 10 == 9:
+                test_history.append(sum/10)
+                train_history.append(t_sum/10)
+                sum = 0
+                t_sum = 0
+                plt.figure(figsize=(15, 7))
+                plt.plot(test_history)
+                plt.savefig('figure/fig_testAcc%d.png' % epoch)
+                plt.figure(figsize=(15, 7))
+                plt.plot(train_history)
+                plt.savefig('figure/fig_trainLoss%d.png' % epoch)
     end_train = time.time()
 
-    print(f"result:{acc_folds[-1]}")
-    plt.plot(acc_folds)
-    plt.show()
+    #print(f"result:{acc_folds[-1]}")
+    #plt.plot(acc_folds)
+    #plt.show()
     #testacc.append(acc_folds)
     #print('{}-fold cross validation avg acc (+- std): {} ({})'.format(n_folds, np.mean(acc_folds), np.std(acc_folds)))
     
