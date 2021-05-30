@@ -22,7 +22,7 @@ class POSTECHDataModule(pl.LightningDataModule):
     def setup(self, stage=None):
         train_valid_data = postech_loader.POSTECHDataset(self.root, self.edge, self.graph_ind,
                                                         train=self.train, save=self.save)
-        self.train_data, self.valid_data = torch.utils.data.random_split(train_valid_data, [4000, 400])
+        self.train_data, self.valid_data = torch.utils.data.random_split(train_valid_data, [3800, 600])
         self.test_data = postech_loader.POSTECHDataset(self.root, self.edge, self.graph_ind,
                                                         test=self.test, save=self.save)
 
@@ -373,12 +373,12 @@ pl.seed_everything(2021)
 POSTECH_data_module = POSTECHDataModule('data', 'graph.txt', 'graph_ind.txt',
                                         train='train.txt', test='test.txt',
                                         batch_size=32, num_workers=0)
-model = LightningGCN(0.001)
+model = LightningGCN(0.0008)
 
 early_stop_callback = pl.callbacks.EarlyStopping(
     monitor='val_loss',
     min_delta=0.00,
-    patience=60,
+    patience=30,
     verbose=True,
     mode='min'
 )
