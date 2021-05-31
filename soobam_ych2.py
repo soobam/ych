@@ -5,11 +5,12 @@
 
 # In[8]:
 
-
+import torch_optimizer as optim
 import torch
 import pytorch_lightning as pl
 from timm.data.loader import MultiEpochsDataLoader
 import dataloader.postech_loader as postech_loader
+import torch.nn.functional as F
 
 class POSTECHDataModule(pl.LightningDataModule):
     def __init__(self, root, edge, graph_ind, train=None, test=None, save='save.pt',
@@ -83,6 +84,7 @@ class GraphConv(pl.LightningModule):
         x = self.fc(torch.bmm(self.laplacian_batch(A), x))
         if self.activation is not None:
             x = self.activation(x)
+        #x = F.dropout(x,0.1)
         return (x, A)
         
 class GCN(pl.LightningModule):
@@ -144,9 +146,12 @@ class GCN(pl.LightningModule):
                                                  
         k1 = 100
         self.k1 = k1
-        k2 = 10
+        k2 = 50
         self.k2 = k2
-        conv2d = torch.nn.Conv2d(k1,k2,3,padding=1)
+        k3 = 10
+        self.k3 = k3
+        #conv2d = torch.nn.Sequential(torch.nn.Conv2d(k1,k2,3,padding=1),torch.nn.Conv2d(k2,k3,3,padding=1))
+        conv2d = torch.nn.Conv2d(k1,k3,3,padding=1)
         self.conv2d = conv2d
 
 
@@ -162,8 +167,9 @@ class GCN(pl.LightningModule):
         #        fc.append(torch.nn.Dropout(p=dropout))
         #    n_last = n_hidden
         #else:
-        n_last = filters[-1]*len(filters)*k2
+        n_last = filters[-1]*len(filters)*k3
         fc.append(torch.nn.Linear(n_last, filters[-1]))
+        fc.append(torch.nn.Linear(filters[-1], filters[-1]))
         fc.append(torch.nn.Linear(filters[-1], out_features))           
         self.fc = torch.nn.Sequential(*fc)
         
@@ -284,7 +290,9 @@ class LightningGCN(pl.LightningModule):
                 f.write(f'{int(original_index)},{int(pred.item()) + 1}\n')
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=self.hparams.learning_rate)
+        return torch.optim.Adam (model.parameters(), lr=0.0008)
+       # return optim.RAdam(model.parameters(), lr=0.005)
+        #torch.optim.AdamW(self.parameters(), lr=self.hparams.learning_rate, betas=(0.9, 0.999), eps=1e-08, weight_decay=0.01, amsgrad=False) #
 
 
 # In[11]:
@@ -378,7 +386,7 @@ model = LightningGCN(0.0008)
 early_stop_callback = pl.callbacks.EarlyStopping(
     monitor='val_loss',
     min_delta=0.00,
-    patience=30,
+    patience=15,
     verbose=True,
     mode='min'
 )
@@ -390,6 +398,7 @@ trainer.fit(model, datamodule=POSTECH_data_module)
 
 
 result = trainer.test(model, datamodule=POSTECH_data_module)
+print(f'answer_version{model.logger.version}.csv')
 grader(f'answer_version{model.logger.version}.csv')  
 
 
